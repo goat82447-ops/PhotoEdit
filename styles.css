@@ -111,6 +111,9 @@ body {
 .prompt-row input:focus { outline: 2px solid var(--accent); border-color: transparent; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.trending-label { margin: 16px 0 0; font-size: .8rem; font-weight: 600; color: var(--accent-2); letter-spacing: .3px; }
+#trendingChips .chip { border-color: var(--accent-2); }
+#trendingChips .chip:hover { background: #2a2540; border-color: var(--accent-2); }
 .chip {
   background: var(--panel-2);
   border: 1px solid var(--border);
