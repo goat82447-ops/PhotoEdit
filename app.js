@@ -320,6 +320,16 @@ const PRESETS = {
   glamour:   { brightness: 110, contrast: 120, saturate: 135, blur: 1 },
   fashion:   { brightness: 108, contrast: 125, saturate: 145, hue: 8 },
   beach:     { brightness: 118, contrast: 115, saturate: 150 },
+  // --- Trending / social-media looks (all offline) ---
+  aesthetic:    { brightness: 106, contrast: 96,  saturate: 88,  sepia: 8 },
+  cleangirl:    { brightness: 110, contrast: 104, saturate: 96,  sepia: 4 },
+  retrofilm:    { sepia: 22,  contrast: 108, saturate: 92,  brightness: 103, hue: 6 },
+  y2k:          { saturate: 170, contrast: 120, brightness: 108, hue: 330 },
+  vsco:         { contrast: 90,  saturate: 105, brightness: 108, sepia: 10 },
+  sunkissed:    { sepia: 20,  saturate: 135, brightness: 112, hue: 10, contrast: 104 },
+  darkacademia: { sepia: 30,  contrast: 118, saturate: 80,  brightness: 90 },
+  cottoncandy:  { hue: 300, saturate: 120, brightness: 114, contrast: 96 },
+  softglam:     { brightness: 110, contrast: 116, saturate: 128, blur: 1 },
 };
 
 // A "look" rule = keyword synonyms -> a full preset.
@@ -364,6 +374,16 @@ const LOOK_RULES = [
   { kw: ["glamour", "glam", "glamourous", "glamorous"], preset: "glamour", msg: "Glamour look." },
   { kw: ["fashion", "editorial", "runway"], preset: "fashion", msg: "Fashion look." },
   { kw: ["beach", "seaside", "sunkissed", "sunny beach"], preset: "beach", msg: "Beach vibe." },
+  // --- Trending / social-media looks ---
+  { kw: ["aesthetic", "aesthetics", "muted", "moodyaesthetic"], preset: "aesthetic", msg: "Aesthetic look." },
+  { kw: ["cleangirl", "natural", "nofilter", "noglam"], preset: "cleangirl", msg: "Clean-girl look." },
+  { kw: ["retrofilm", "filmlook", "35mm", "analog", "analogue", "kodak"], preset: "retrofilm", msg: "Retro film look." },
+  { kw: ["y2k", "2000s", "hyperpop"], preset: "y2k", msg: "Y2K vibe." },
+  { kw: ["vsco", "vscogirl", "fadedfilm"], preset: "vsco", msg: "VSCO look." },
+  { kw: ["sunkiss", "tan", "bronzed", "bronze", "goldenskin"], preset: "sunkissed", msg: "Sun-kissed glow." },
+  { kw: ["darkacademia", "academia", "vintagedark", "library"], preset: "darkacademia", msg: "Dark-academia look." },
+  { kw: ["cottoncandy", "candy", "dreamypink", "kawaii"], preset: "cottoncandy", msg: "Cotton-candy look." },
+  { kw: ["softglam", "glowup", "glow", "flawless"], preset: "softglam", msg: "Soft-glam look." },
   { kw: ["enhance", "improve", "fix", "better", "auto", "beautify"], preset: "enhance", msg: "Auto-enhanced." },
 ];
 
@@ -534,6 +554,29 @@ function interpretPrompt(text) {
     filters = { ...DEFAULTS, ...PRESETS.bold };
     messages.unshift("Bold pop.");
     lookApplied = true;
+  }
+  // Trending multi-word looks — match the space-stripped phrase exactly so they
+  // win over earlier single-word fuzzy rules (retro->vintage, soft->pastel, etc.).
+  if (!lookApplied) {
+    const TRENDING_EXACT = [
+      { c: "cleangirl", preset: "cleangirl", msg: "Clean-girl look." },
+      { c: "retrofilm", preset: "retrofilm", msg: "Retro film look." },
+      { c: "softglam", preset: "softglam", msg: "Soft-glam look." },
+      { c: "darkacademia", preset: "darkacademia", msg: "Dark-academia look." },
+      { c: "cottoncandy", preset: "cottoncandy", msg: "Cotton-candy look." },
+      { c: "sunkiss", preset: "sunkissed", msg: "Sun-kissed glow." },
+      { c: "aesthetic", preset: "aesthetic", msg: "Aesthetic look." },
+      { c: "vsco", preset: "vsco", msg: "VSCO look." },
+      { c: "y2k", preset: "y2k", msg: "Y2K vibe." },
+    ];
+    for (const t of TRENDING_EXACT) {
+      if (compact.includes(t.c)) {
+        filters = { ...DEFAULTS, ...PRESETS[t.preset] };
+        messages.unshift(t.msg);
+        lookApplied = true;
+        break;
+      }
+    }
   }
   if (!lookApplied) {
     for (const rule of LOOK_RULES) {
