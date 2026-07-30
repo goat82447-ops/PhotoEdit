@@ -22,6 +22,7 @@ let rotation = 0;      // degrees, multiples of 90
 let flipH = false;
 let flipV = false;
 let sourceImage = null; // HTMLImageElement of the loaded photo
+let bodyCover = null;   // null | 'both' | 'upper' | 'lower' — modesty overlay
 
 // Multi-mode state
 let mode = "photo";        // 'photo' | 'video' | 'create'
@@ -184,6 +185,22 @@ function drawWithTransform(context, cv, source, w, h) {
 function render() {
   if (!sourceImage) return;
   drawWithTransform(ctx, canvas, sourceImage, sourceImage.naturalWidth, sourceImage.naturalHeight);
+  if (bodyCover) coverBody(ctx, canvas.width, canvas.height, bodyCover);
+}
+
+// Draws solid modesty bars over the body area (upper/lower). This simply
+// covers/hides part of the picture — it does not reveal anything.
+function coverBody(context, width, height, part = "both") {
+  context.save();
+  context.filter = "none";
+  context.fillStyle = "#222";
+  if (part === "both" || part === "upper") {
+    context.fillRect(width * 0.30, height * 0.20, width * 0.40, height * 0.25);
+  }
+  if (part === "both" || part === "lower") {
+    context.fillRect(width * 0.30, height * 0.55, width * 0.40, height * 0.30);
+  }
+  context.restore();
 }
 
 // --- UI sync ------------------------------------------------
@@ -237,6 +254,7 @@ function resetAll(rerender = true) {
   rotation = 0;
   flipH = false;
   flipV = false;
+  bodyCover = null;
   syncControls();
   promptFeedback.textContent = "";
   if (rerender) render();
@@ -297,6 +315,11 @@ const PRESETS = {
   thermal:   { hue: 90, saturate: 260, contrast: 130 },
   xray:      { invert: 100, grayscale: 100, contrast: 120 },
   enhance:   { contrast: 112, saturate: 118, brightness: 106 },
+  bold:      { brightness: 112, contrast: 160, saturate: 155 },
+  hot:       { brightness: 115, contrast: 130, saturate: 150, sepia: 10, hue: 5 },
+  glamour:   { brightness: 110, contrast: 120, saturate: 135, blur: 1 },
+  fashion:   { brightness: 108, contrast: 125, saturate: 145, hue: 8 },
+  beach:     { brightness: 118, contrast: 115, saturate: 150 },
 };
 
 // A "look" rule = keyword synonyms -> a full preset.
@@ -307,7 +330,7 @@ const LOOK_RULES = [
   { kw: ["noir", "filmnoir"], preset: "noir", msg: "Moody noir." },
   { kw: ["cool", "cold", "icy", "bluetone", "cooltone"], preset: "cool", msg: "Cool tone." },
   { kw: ["warm", "warmtone", "cozy", "cosy"], preset: "warm", msg: "Warm tone." },
-  { kw: ["dramatic", "highcontrast", "punchy", "bold", "intense"], preset: "dramatic", msg: "Dramatic contrast." },
+  { kw: ["dramatic", "highcontrast", "punchy", "intense"], preset: "dramatic", msg: "Dramatic contrast." },
   { kw: ["vivid", "vibrant", "pop", "colorful", "colourful"], preset: "vivid", msg: "Vivid & bright." },
   { kw: ["faded", "washedout", "pale", "vintagefade"], preset: "faded", msg: "Faded look." },
   { kw: ["dreamy", "dream", "hazy", "ethereal"], preset: "dreamy", msg: "Soft dreamy blur." },
@@ -336,6 +359,11 @@ const LOOK_RULES = [
   { kw: ["sketch", "drawing", "pencil"], preset: "sketch", msg: "Sketch effect." },
   { kw: ["thermal", "heatmap", "infrared"], preset: "thermal", msg: "Thermal effect." },
   { kw: ["xray", "x-ray"], preset: "xray", msg: "X-ray effect." },
+  { kw: ["bold", "boldpop"], preset: "bold", msg: "Bold pop." },
+  { kw: ["hot", "hotlook", "spicy"], preset: "hot", msg: "Hot look." },
+  { kw: ["glamour", "glam", "glamourous", "glamorous"], preset: "glamour", msg: "Glamour look." },
+  { kw: ["fashion", "editorial", "runway"], preset: "fashion", msg: "Fashion look." },
+  { kw: ["beach", "seaside", "sunkissed", "sunny beach"], preset: "beach", msg: "Beach vibe." },
   { kw: ["enhance", "improve", "fix", "better", "auto", "beautify"], preset: "enhance", msg: "Auto-enhanced." },
 ];
 
@@ -437,6 +465,28 @@ function interpretPrompt(text) {
     }
   }
 
+  // 0c) Cover / hide part of the body (modesty bars). Just covers the
+  //     picture — reveals nothing.
+  {
+    const uncover = matchAny(compact, words, ["uncover", "removecover", "showbody", "nocover"]);
+    if (uncover && bodyCover) {
+      bodyCover = null;
+      render();
+      return "\u2705 Removed the cover.";
+    }
+    const coverIntent = matchAny(compact, words, ["cover", "hide", "censor", "block"]);
+    const wantsUpper = compact.includes("hideupper") || (coverIntent && words.some((w) => nearWord(w, "upper")));
+    const wantsLower = compact.includes("hidelower") || (coverIntent && words.some((w) => nearWord(w, "lower")));
+    const wantsBoth = matchAny(compact, words, ["coverbody", "hidebody", "censor"])
+      || (coverIntent && words.some((w) => nearWord(w, "body")));
+    if (wantsUpper || wantsLower || wantsBoth) {
+      if (!sourceImage) return "Load a photo first, then say e.g. \u201ccover body\u201d.";
+      bodyCover = (wantsBoth || (wantsUpper && wantsLower)) ? "both" : wantsUpper ? "upper" : "lower";
+      render();
+      return "\u2705 Applied body covering.";
+    }
+  }
+
   // 1) Transforms
   if (/\brotate\s*180\b/.test(raw) || matchAny(compact, words, ["upsidedown"])) { rotation = (rotation + 180) % 360; messages.push("Rotated 180\u00b0."); }
   else if (matchAny(compact, words, ["rotateleft", "rotateccw", "counterclockwise", "anticlockwise"])) { rotation = (rotation - 90 + 360) % 360; messages.push("Rotated left."); }
@@ -477,6 +527,12 @@ function interpretPrompt(text) {
   if (compact.includes("blackandwhite") || compact.includes("blackwhite") || (hasBlack && hasWhite)) {
     filters = { ...DEFAULTS, ...PRESETS.bw };
     messages.unshift("Black & white.");
+    lookApplied = true;
+  }
+  // "bold" is 4 letters and fuzzy-collides with cold/gold/mold, so match it exactly.
+  if (!lookApplied && words.includes("bold")) {
+    filters = { ...DEFAULTS, ...PRESETS.bold };
+    messages.unshift("Bold pop.");
     lookApplied = true;
   }
   if (!lookApplied) {
