@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prompt Photo &amp; Video Studio</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>🎬 Prompt Photo &amp; Video Studio</h1>
+    <p class="subtitle">Edit photos &amp; videos and generate clips with plain-English prompts — 100% in your browser.</p>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-mode="photo">🖼️ Photo</button>
+    <button class="tab" data-mode="video">🎞️ Video</button>
+    <button class="tab" data-mode="create">✨ Create Video</button>
+  </nav>
+
+  <main class="layout">
+    <!-- LEFT: stages -->
+    <section class="stage">
+
+      <!-- PHOTO STAGE -->
+      <div class="mode-stage" data-modes="photo">
+        <div id="dropzone" class="dropzone">
+          <input type="file" id="fileInput" accept="image/*" hidden />
+          <div class="dropzone-inner" id="dropzoneInner">
+            <div class="dz-icon">⬆️</div>
+            <p><strong>Drop a photo here</strong> or <button type="button" id="browseBtn" class="link-btn">browse</button></p>
+            <p class="hint">PNG, JPG, WEBP — nothing is uploaded anywhere.</p>
+          </div>
+          <canvas id="canvas" class="canvas hidden"></canvas>
+        </div>
+        <div class="stage-actions">
+          <button id="savePhotoBtn" class="btn primary" disabled>📲 Save / Share</button>
+          <button id="downloadBtn" class="btn" disabled>⬇️ Download</button>
+          <button id="resetBtn" class="btn" disabled>↺ Reset</button>
+          <button id="newImageBtn" class="btn" disabled>🖼️ New image</button>
+        </div>
+      </div>
+
+      <!-- VIDEO STAGE -->
+      <div class="mode-stage hidden" data-modes="video">
+        <div id="videoDrop" class="dropzone">
+          <input type="file" id="videoInput" accept="video/*" hidden />
+          <div class="dropzone-inner" id="videoDropInner">
+            <div class="dz-icon">🎞️</div>
+            <p><strong>Drop a video here</strong> or <button type="button" id="videoBrowseBtn" class="link-btn">browse</button></p>
+            <p class="hint">MP4, WEBM, MOV — processed locally in your browser.</p>
+          </div>
+          <video id="video" playsinline muted class="hidden"></video>
+          <canvas id="videoCanvas" class="canvas hidden"></canvas>
+        </div>
+
+        <div class="video-controls hidden" id="videoControls">
+          <div class="playbar">
+            <button id="playPauseBtn" class="btn">▶️ Play</button>
+            <span id="videoTime" class="time">0.0s / 0.0s</span>
+          </div>
+          <label class="slider">
+            <span>Trim start <b id="trimStartVal">0.0s</b></span>
+            <input type="range" id="trimStart" min="0" max="100" step="0.1" value="0" />
+          </label>
+          <label class="slider">
+            <span>Trim end <b id="trimEndVal">0.0s</b></span>
+            <input type="range" id="trimEnd" min="0" max="100" step="0.1" value="100" />
+          </label>
+        </div>
+
+        <div class="stage-actions">
+          <button id="exportVideoBtn" class="btn primary" disabled>🎥 Export clip</button>
+          <button id="saveVideoBtn" class="btn" disabled>📲 Save / Share</button>
+          <button id="resetVideoBtn" class="btn" disabled>↺ Reset</button>
+          <button id="newVideoBtn" class="btn" disabled>🎞️ New video</button>
+        </div>
+        <div class="progress hidden" id="videoProgress"><div class="bar" id="videoProgressBar"></div></div>
+        <p class="prompt-feedback" id="videoStatus"></p>
+      </div>
+
+      <!-- CREATE STAGE -->
+      <div class="mode-stage hidden" data-modes="create">
+        <div id="createDrop" class="dropzone">
+          <input type="file" id="createInput" accept="image/*" multiple hidden />
+          <div class="dropzone-inner" id="createDropInner">
+            <div class="dz-icon">✨</div>
+            <p><strong>Drop photos here</strong> or <button type="button" id="createBrowseBtn" class="link-btn">browse</button></p>
+            <p class="hint">1 photo = animated clip · many photos = slideshow.</p>
+          </div>
+          <canvas id="createCanvas" class="canvas hidden"></canvas>
+        </div>
+        <div class="thumbs" id="thumbs"></div>
+        <div class="stage-actions">
+          <button id="generateBtn" class="btn primary" disabled>✨ Generate video</button>
+          <button id="saveGenBtn" class="btn" disabled>📲 Save / Share</button>
+          <button id="clearGenBtn" class="btn" disabled>🗑️ Clear</button>
+        </div>
+        <div class="progress hidden" id="genProgress"><div class="bar" id="genProgressBar"></div></div>
+        <p class="prompt-feedback" id="genStatus"></p>
+      </div>
+    </section>
+
+    <!-- RIGHT: controls -->
+    <aside class="controls">
+      <!-- Text -> image/video generator (offline) -->
+      <div class="panel hidden" data-modes="create">
+        <h2>🎨 Generate from text (offline)</h2>
+        <p class="panel-hint">No internet or keys needed. Type a scene and I'll <em>paint</em> an image from your words, then you can turn it into a video. This makes colorful art (sunset, ocean, night sky, city, forest, fire, rainbow, any colors…) — not a real photo.</p>
+        <div class="prompt-row">
+          <input type="text" id="artPrompt" placeholder="e.g. sunset over the ocean, purple night sky, city skyline" />
+          <button id="makeImgBtn" class="btn primary">🎨 Image</button>
+        </div>
+        <button id="makeVidBtn" class="btn full-btn">🎬 Make full video from text</button>
+      </div>
+
+      <!-- Create settings (create mode only) -->
+      <div class="panel hidden" data-modes="create">
+        <h2>🎬 Video settings</h2>
+        <label class="slider">
+          <span>Effect</span>
+          <select id="effectSelect" class="select">
+            <option value="kenburns">Ken Burns (zoom &amp; pan)</option>
+            <option value="zoomin">Zoom in</option>
+            <option value="zoomout">Zoom out</option>
+            <option value="panlr">Pan left → right</option>
+            <option value="still">Still (no motion)</option>
+          </select>
+        </label>
+        <label class="slider">
+          <span>Seconds per photo <b id="perDurationVal">3.0s</b></span>
+          <input type="range" id="perDuration" min="1" max="8" step="0.5" value="3" />
+        </label>
+        <label class="slider">
+          <span>Output size</span>
+          <select id="resSelect" class="select">
+            <option value="1280x720">Landscape 720p (1280×720)</option>
+            <option value="1920x1080">Landscape 1080p (1920×1080)</option>
+            <option value="720x1280">Portrait (720×1280)</option>
+            <option value="1080x1080">Square (1080×1080)</option>
+          </select>
+        </label>
+        <label class="slider">
+          <span>Crossfade <b id="fadeVal">on</b></span>
+          <input type="range" id="fade" min="0" max="1" step="1" value="1" />
+        </label>
+      </div>
+
+      <div class="panel hidden" data-modes="create">
+        <h2>🎵 Music video (add your own song)</h2>
+        <p class="panel-hint">Add a song <strong>from your device</strong> and I'll build a beat‑reacting music video from your photos/scenes and export it <em>with the audio</em> — all offline. The video length follows your song. <em>Please use music you own or have the right to use — I can't include copyrighted famous songs.</em></p>
+        <div class="recolor-row">
+          <button id="musicBtn" class="btn">🎵 Add song</button>
+          <input id="musicInput" type="file" accept="audio/*" class="hidden" />
+        </div>
+        <p class="prompt-feedback" id="musicName"></p>
+        <label class="slider">
+          <span>Beat reaction <b id="beatVal">on</b></span>
+          <input type="range" id="beatReact" min="0" max="1" step="1" value="1" />
+        </label>
+        <label class="slider">
+          <span>Music bars <b id="barsVal">on</b></span>
+          <input type="range" id="showBars" min="0" max="1" step="1" value="1" />
+        </label>
+        <label class="slider">
+          <span>💃 Make the person dance <b id="danceVal">off</b></span>
+          <input type="range" id="danceMode" min="0" max="1" step="1" value="0" />
+        </label>
+        <p class="panel-hint">Dance makes your photo <em>move to the beat</em> — bounce, sway, spin, jump, twist, shimmy, headbang and more, cycling through moves. It's an offline motion effect on your picture, not an AI body that re‑poses limbs (that needs paid cloud AI).</p>
+      </div>
+
+      <div class="panel" data-modes="photo video create">
+        <h2>💬 Prompt</h2>
+        <p class="panel-hint">Type <em>anything</em> — looks (vintage, cinematic, cyberpunk, neon, sketch…), tweaks (<em>brighter</em>, <em>more color</em>, <em>blur</em>), numbers (<em>brightness 150</em>, <em>increase contrast by 20</em>), transforms (<em>rotate left</em>, <em>mirror</em>), or recolour (<em>change red dress to blue</em>, <em>make the green blue</em>). Typos are OK — I'll figure it out.</p>
+        <div class="prompt-row">
+          <input type="text" id="promptInput" placeholder="e.g. warm vintage, brighter, then contrast 130" />
+          <button id="applyPromptBtn" class="btn primary">Apply</button>
+        </div>
+        <div class="chips" id="promptChips">
+          <button class="chip" data-prompt="vintage">Vintage</button>
+          <button class="chip" data-prompt="warm sunset">Warm sunset</button>
+          <button class="chip" data-prompt="black and white">B &amp; W</button>
+          <button class="chip" data-prompt="cinematic">Cinematic</button>
+          <button class="chip" data-prompt="cyberpunk">Cyberpunk</button>
+          <button class="chip" data-prompt="neon glow">Neon</button>
+          <button class="chip" data-prompt="cool tone">Cool</button>
+          <button class="chip" data-prompt="dramatic">Dramatic</button>
+          <button class="chip" data-prompt="vivid">Vivid</button>
+          <button class="chip" data-prompt="pastel">Pastel</button>
+          <button class="chip" data-prompt="sketch">Sketch</button>
+          <button class="chip" data-prompt="dreamy soft blur">Dreamy</button>
+          <button class="chip" data-prompt="invert colors">Invert</button>
+          <button class="chip" data-prompt="surprise me">🎲 Surprise</button>
+        </div>
+        <p class="prompt-feedback" id="promptFeedback"></p>
+      </div>
+
+      <div class="panel" data-modes="photo video create">
+        <h2>🎛️ Adjustments</h2>
+
+        <label class="slider">
+          <span>Brightness <b id="brightnessVal">100%</b></span>
+          <input type="range" id="brightness" min="0" max="200" value="100" />
+        </label>
+        <label class="slider">
+          <span>Contrast <b id="contrastVal">100%</b></span>
+          <input type="range" id="contrast" min="0" max="200" value="100" />
+        </label>
+        <label class="slider">
+          <span>Saturation <b id="saturateVal">100%</b></span>
+          <input type="range" id="saturate" min="0" max="300" value="100" />
+        </label>
+        <label class="slider">
+          <span>Grayscale <b id="grayscaleVal">0%</b></span>
+          <input type="range" id="grayscale" min="0" max="100" value="0" />
+        </label>
+        <label class="slider">
+          <span>Sepia <b id="sepiaVal">0%</b></span>
+          <input type="range" id="sepia" min="0" max="100" value="0" />
+        </label>
+        <label class="slider">
+          <span>Hue rotate <b id="hueVal">0°</b></span>
+          <input type="range" id="hue" min="0" max="360" value="0" />
+        </label>
+        <label class="slider">
+          <span>Blur <b id="blurVal">0px</b></span>
+          <input type="range" id="blur" min="0" max="20" value="0" />
+        </label>
+        <label class="slider">
+          <span>Invert <b id="invertVal">0%</b></span>
+          <input type="range" id="invert" min="0" max="100" value="0" />
+        </label>
+      </div>
+
+      <div class="panel" data-modes="photo">
+        <h2>🎨 Recolor (change a color)</h2>
+        <p class="panel-hint">Change one colour to another — e.g. a <em>red</em> dress to <em>blue</em> — while keeping the face, body and expression exactly the same. Only the chosen colour changes; shading and folds are kept. Tip: use <strong>Pick from photo</strong> to click the exact colour, and lower <em>Match range</em> if skin changes too.</p>
+        <div class="recolor-row">
+          <label class="color-field"><span>From</span><input type="color" id="recolorFrom" value="#d11f2f" /></label>
+          <button id="pickColorBtn" class="btn">🎯 Pick from photo</button>
+        </div>
+        <label class="color-field"><span>To</span><input type="color" id="recolorTo" value="#2f6bd1" /></label>
+        <label class="slider">
+          <span>Match range <b id="recolorTolVal">30</b></span>
+          <input type="range" id="recolorTol" min="5" max="90" value="30" />
+        </label>
+        <button id="recolorBtn" class="btn primary full-btn" disabled>🎨 Apply recolor</button>
+        <p class="prompt-feedback" id="recolorFeedback"></p>
+      </div>
+
+      <div class="panel" data-modes="photo">
+        <h2>🌈 Match a look (from any photo)</h2>
+        <p class="panel-hint">Saw a photo you love on Instagram, Pinterest or the web? Save it, add it here as a <strong>reference</strong>, and I'll give <em>your</em> photo the same colours &amp; mood — your face and body stay the same. (Offline colour-match — not a full AI face-swap.)</p>
+        <div class="recolor-row">
+          <button id="styleRefBtn" class="btn">🖼️ Add reference</button>
+          <input id="styleRefInput" type="file" accept="image/*" class="hidden" />
+          <img id="styleRefThumb" class="ref-thumb hidden" alt="reference look" />
+        </div>
+        <label class="slider">
+          <span>Strength <b id="styleStrengthVal">80</b>%</span>
+          <input type="range" id="styleStrength" min="10" max="100" value="80" />
+        </label>
+        <button id="styleMatchBtn" class="btn primary full-btn" disabled>🌈 Match this look</button>
+        <p class="prompt-feedback" id="styleFeedback"></p>
+      </div>
+
+      <div class="panel" data-modes="photo video">
+        <h2>🔄 Transform</h2>
+        <div class="btn-grid">
+          <button class="btn" id="rotateLeftBtn">⟲ Rotate left</button>
+          <button class="btn" id="rotateRightBtn">⟳ Rotate right</button>
+          <button class="btn" id="flipHBtn">↔ Flip H</button>
+          <button class="btn" id="flipVBtn">↕ Flip V</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
